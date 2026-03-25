@@ -4,730 +4,994 @@ import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 // ─────────────────────────────────────────────
-// TYPES & CONSTANTS
+// TYPES & ANIMATION HELPERS
 // ─────────────────────────────────────────────
 type Dir = 1 | -1;
 
-const variants = {
+const slideVariants = {
   enter: (d: Dir) => ({ x: d > 0 ? "100%" : "-100%", opacity: 0 }),
   center: { x: 0, opacity: 1 },
   exit: (d: Dir) => ({ x: d > 0 ? "-100%" : "100%", opacity: 0 }),
 };
-
 const tx = { duration: 0.5, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] };
 
-const s = (i: number, base = 0.3) => ({
-  initial: { opacity: 0, y: 24 },
+const a = (i: number, base = 0.25) => ({
+  initial: { opacity: 0, y: 28 },
   animate: { opacity: 1, y: 0 },
   transition: { delay: base + i * 0.1, duration: 0.45, ease: "easeOut" as const },
 });
 
 // ─────────────────────────────────────────────
+// DESIGN TOKENS
+// ─────────────────────────────────────────────
+const C = {
+  bg: "#050D1A",
+  card: "#0A1628",
+  blue: "#1E90FF",
+  cyan: "#00D4FF",
+  muted: "#7B9EC9",
+  text: "#E8F4FD",
+  border: "rgba(30,144,255,0.15)",
+  borderBright: "rgba(0,212,255,0.3)",
+};
+
+// ─────────────────────────────────────────────
 // SHARED COMPONENTS
 // ─────────────────────────────────────────────
-function SlideHeader({ tag, title, subtitle }: { tag: string; title: React.ReactNode; subtitle?: string }) {
+function Tag({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mb-6 md:mb-8">
-      <motion.div {...s(0)} className="inline-flex items-center gap-2 px-3 py-1 rounded-md mb-3 text-xs font-mono font-bold"
-        style={{ background: "rgba(30,144,255,0.12)", color: "#00D4FF", border: "1px solid rgba(0,212,255,0.2)" }}>
-        {tag}
-      </motion.div>
-      <motion.h2 {...s(1)} className="text-3xl md:text-4xl lg:text-5xl font-black leading-tight mb-2" style={{ color: "#E8F4FD" }}>
-        {title}
-      </motion.h2>
-      {subtitle && (
-        <motion.p {...s(2)} className="text-sm md:text-base" style={{ color: "#7B9EC9" }}>{subtitle}</motion.p>
-      )}
-    </div>
-  );
-}
-
-function TechBadge({ label, color = "#1E90FF" }: { label: string; color?: string }) {
-  return (
-    <span className="tech-badge" style={{ borderColor: `${color}40`, color, background: `${color}12` }}>{label}</span>
-  );
-}
-
-function Bullet({ icon, text, delay, mono = false }: { icon: string; text: string; delay: number; mono?: boolean }) {
-  return (
-    <motion.div {...s(delay)} className="flex items-start gap-3">
-      <span className="text-lg shrink-0 mt-0.5">{icon}</span>
-      <p className={`text-sm md:text-base leading-relaxed ${mono ? "font-mono" : ""}`} style={{ color: "#A8C8E8" }}>{text}</p>
+    <motion.div {...a(0)} className="inline-flex items-center gap-2 px-3 py-1 rounded-md mb-3 text-[11px] font-mono font-bold"
+      style={{ background: "rgba(30,144,255,0.1)", color: C.cyan, border: `1px solid ${C.borderBright}` }}>
+      {children}
     </motion.div>
   );
 }
 
-function CodeSnip({ lines }: { lines: React.ReactNode[] }) {
+function H({ children, sub }: { children: React.ReactNode; sub?: string }) {
   return (
-    <div className="code-block rounded-lg overflow-auto text-xs md:text-sm">
-      {lines.map((l, i) => <div key={i}>{l}</div>)}
+    <div className="mb-6">
+      <motion.h2 {...a(1)} className="text-3xl md:text-4xl lg:text-5xl font-black leading-tight mb-1" style={{ color: C.text }}>
+        {children}
+      </motion.h2>
+      {sub && <motion.p {...a(2)} className="text-sm md:text-base" style={{ color: C.muted }}>{sub}</motion.p>}
+    </div>
+  );
+}
+
+function Card({ children, className = "", style = {} }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
+  return (
+    <div className={`rounded-xl p-4 ${className}`}
+      style={{ background: C.card, border: `1px solid ${C.border}`, ...style }}>
+      {children}
+    </div>
+  );
+}
+
+function Chip({ label, color = C.blue }: { label: string; color?: string }) {
+  return (
+    <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-mono font-bold"
+      style={{ background: `${color}18`, color, border: `1px solid ${color}40` }}>
+      {label}
+    </span>
+  );
+}
+
+function SlideWrap({ children, centered = false }: { children: React.ReactNode; centered?: boolean }) {
+  return (
+    <div className="relative w-full h-full overflow-hidden" style={{ background: C.bg }}>
+      <div className="absolute inset-0 opacity-30"
+        style={{
+          backgroundImage: `linear-gradient(${C.border} 1px, transparent 1px), linear-gradient(90deg, ${C.border} 1px, transparent 1px)`,
+          backgroundSize: "40px 40px",
+        }} />
+      <div className={`relative z-10 w-full h-full ${centered ? "flex items-center justify-center" : ""}`}>
+        {children}
+      </div>
     </div>
   );
 }
 
 // ─────────────────────────────────────────────
-// SLIDE 1 — VUE D'ENSEMBLE
+// SLIDE 1 — TITRE
 // ─────────────────────────────────────────────
-function Slide01Overview() {
+function Slide01() {
   return (
-    <div className="relative w-full h-full bg-grid flex items-center justify-center overflow-hidden"
-      style={{ background: "linear-gradient(135deg, #050D1A 0%, #0A1628 100%)" }}>
-
-      {/* Animated grid overlay */}
-      <div className="absolute inset-0 bg-grid opacity-60" />
-
-      {/* Glow orb */}
-      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full blur-[120px] opacity-10 animate-pulse-blue"
+    <SlideWrap centered>
+      {/* Glows */}
+      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full blur-[150px] opacity-8 pointer-events-none"
         style={{ background: "radial-gradient(circle, #1E90FF, transparent 70%)" }} />
+      <div className="absolute top-10 right-10 text-[6rem] opacity-5 pointer-events-none">🎂</div>
+      <div className="absolute bottom-10 left-10 text-[5rem] opacity-5 pointer-events-none">🧁</div>
 
-      <div className="relative z-10 w-full max-w-5xl mx-auto px-8 md:px-16 grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
-        {/* Left */}
-        <div>
-          <motion.div {...s(0)} className="flex items-center gap-3 mb-5">
-            <div className="w-2 h-2 rounded-full animate-blink" style={{ background: "#00D4FF" }} />
-            <span className="text-xs font-mono" style={{ color: "#7B9EC9" }}>PROJET FIN D&apos;ÉTUDES · 2025</span>
-          </motion.div>
+      <div className="text-center max-w-3xl px-8">
+        {/* Badge */}
+        <motion.div {...a(0)} className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-8 text-xs font-mono"
+          style={{ background: "rgba(30,144,255,0.1)", color: C.cyan, border: `1px solid ${C.borderBright}` }}>
+          <span className="w-1.5 h-1.5 rounded-full animate-pulse inline-block" style={{ background: C.cyan }} />
+          Projet de Fin d&apos;Études · 2024 – 2026
+        </motion.div>
 
-          <motion.div {...s(1)}>
-            <h1 className="text-6xl md:text-7xl lg:text-8xl font-black leading-none tracking-tight text-gradient-shimmer mb-3">
-              MaCake
-            </h1>
-          </motion.div>
+        {/* Logo */}
+        <motion.div {...a(1)}>
+          <h1 className="text-[5rem] md:text-[7rem] lg:text-[9rem] font-black leading-none tracking-tight mb-4"
+            style={{
+              background: `linear-gradient(135deg, ${C.blue} 0%, ${C.cyan} 50%, #ffffff 100%)`,
+              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
+            }}>
+            MaCake
+          </h1>
+        </motion.div>
 
-          <motion.p {...s(2)} className="text-lg md:text-xl font-semibold mb-2" style={{ color: "#E8F4FD" }}>
-            Plateforme digitale de pâtisserie à domicile
-          </motion.p>
+        <motion.div {...a(2)} className="h-px w-32 mx-auto mb-6" style={{ background: `linear-gradient(90deg, transparent, ${C.blue}, transparent)` }} />
 
-          <motion.p {...s(3)} className="text-sm md:text-base leading-relaxed mb-6" style={{ color: "#7B9EC9" }}>
-            Marketplace connectant <span style={{ color: "#00D4FF" }}>pâtissiers</span>,{" "}
-            <span style={{ color: "#00D4FF" }}>clients</span> et{" "}
-            <span style={{ color: "#00D4FF" }}>livreurs</span> via une architecture microservices distribuée.
-          </motion.p>
+        <motion.p {...a(3)} className="text-lg md:text-xl font-semibold mb-3" style={{ color: C.text }}>
+          Plateforme digitale de pâtisserie à domicile
+        </motion.p>
 
-          <motion.div {...s(4)} className="flex flex-wrap gap-2">
-            {["NestJS 11", "MongoDB", "Redis", "RabbitMQ", "Docker", "Expo"].map(t => (
-              <TechBadge key={t} label={t} />
-            ))}
-          </motion.div>
-        </div>
+        <motion.p {...a(4)} className="text-sm md:text-base leading-relaxed mb-8" style={{ color: C.muted }}>
+          Une marketplace connectant <span style={{ color: C.cyan }}>pâtissiers artisanaux</span> et{" "}
+          <span style={{ color: C.cyan }}>clients</span> — commande, livraison et paiement sécurisé.
+        </motion.p>
 
-        {/* Right — mini arch diagram */}
-        <motion.div {...s(3)} className="glass-bright rounded-2xl p-6 space-y-3">
-          <p className="text-xs font-mono mb-4" style={{ color: "#7B9EC9" }}>// Acteurs du système</p>
-
+        {/* Meta info */}
+        <motion.div {...a(5)} className="flex flex-wrap justify-center gap-3">
           {[
-            { icon: "📱", label: "Client", role: "Commande & paiement", color: "#1E90FF" },
-            { icon: "👩‍🍳", label: "Pâtissière", role: "Catalogue & préparation", color: "#00D4FF" },
-            { icon: "🛵", label: "Livreur", role: "Livraison (modèle InDrive)", color: "#7B9EC9" },
-            { icon: "🛡️", label: "Admin", role: "Gestion & supervision", color: "#A8C8E8" },
-          ].map((a, i) => (
-            <motion.div key={i} {...s(i + 4)} className="card p-3 flex items-center gap-3">
-              <span className="text-xl">{a.icon}</span>
-              <div>
-                <p className="font-bold text-sm" style={{ color: a.color }}>{a.label}</p>
-                <p className="text-xs" style={{ color: "#7B9EC9" }}>{a.role}</p>
-              </div>
-            </motion.div>
+            { icon: "🎓", label: "PFE — Génie Informatique" },
+            { icon: "📅", label: "Année : 2024 – 2026" },
+            { icon: "🏫", label: "YouCode Maroc" },
+          ].map((m, i) => (
+            <div key={i} className="flex items-center gap-2 px-4 py-2 rounded-lg"
+              style={{ background: "rgba(30,144,255,0.07)", border: `1px solid ${C.border}` }}>
+              <span className="text-base">{m.icon}</span>
+              <span className="text-xs font-medium" style={{ color: C.muted }}>{m.label}</span>
+            </div>
           ))}
         </motion.div>
       </div>
-    </div>
+    </SlideWrap>
   );
 }
 
 // ─────────────────────────────────────────────
-// SLIDE 2 — PROBLÈME TECHNIQUE
+// SLIDE 2 — INTRODUCTION
 // ─────────────────────────────────────────────
-function Slide02Problem() {
-  const problems = [
-    { icon: "⚙️", title: "Gestion multi-services", desc: "Coordonner Auth, Order, Catalog, Payment, Notation de façon indépendante et fiable." },
-    { icon: "🔄", title: "Synchronisation des données", desc: "Un order-service doit enrichir ses données avec auth-service et notation-service sans couplage fort." },
-    { icon: "⚡", title: "Performance distribuée", desc: "Agrégation de données depuis N services sans générer des appels N+1 et des latences cumulées." },
-    { icon: "🔐", title: "Sécurité centralisée", desc: "Authentification JWT et autorisation par rôle sans dupliquer la logique dans chaque service." },
-    { icon: "📡", title: "Point d'entrée unique", desc: "Exposer une API cohérente sans exposer les ports internes de chaque microservice." },
-  ];
+function Slide02() {
   return (
-    <div className="relative w-full h-full flex items-center justify-center overflow-hidden"
-      style={{ background: "linear-gradient(135deg, #050D1A 0%, #0A0F1E 100%)" }}>
+    <SlideWrap>
+      <div className="flex items-center h-full max-w-6xl mx-auto px-8 md:px-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center w-full">
+          {/* Left */}
+          <div>
+            <Tag>// SLIDE 02 · INTRODUCTION</Tag>
+            <H sub="Pourquoi ce projet existe-t-il ?">Introduction & <span style={{ color: C.cyan }}>Contexte</span></H>
 
-      <div className="absolute inset-0 bg-grid opacity-40" />
-      <div className="absolute top-1/4 right-0 w-64 h-64 rounded-full blur-[100px] opacity-10"
-        style={{ background: "#FF4444" }} />
-
-      <div className="relative z-10 w-full max-w-5xl mx-auto px-8 md:px-16">
-        <SlideHeader tag="// SLIDE 02 · DÉFIS TECHNIQUES" title={<>Problèmes <span className="text-gradient">Techniques</span></>}
-          subtitle="Défis d'architecture identifiés lors de la conception du système" />
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {problems.map((p, i) => (
-            <motion.div key={i} {...s(i + 3)} className={`card p-4 ${i === 4 ? "md:col-span-2" : ""}`}>
-              <div className="flex items-start gap-3">
-                <span className="text-xl mt-0.5">{p.icon}</span>
-                <div>
-                  <p className="font-bold text-sm mb-1" style={{ color: "#00D4FF" }}>{p.title}</p>
-                  <p className="text-xs md:text-sm leading-relaxed" style={{ color: "#7B9EC9" }}>{p.desc}</p>
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────
-// SLIDE 3 — TECHNOLOGIES
-// ─────────────────────────────────────────────
-function Slide03Technologies() {
-  const techs = [
-    {
-      icon: "🏗️", name: "NestJS 11", category: "Backend Framework",
-      why: "Architecture modulaire, decorators TypeScript, support natif TCP microservices et RabbitMQ.",
-      color: "#E0234E",
-    },
-    {
-      icon: "🍃", name: "MongoDB", category: "Base de données",
-      why: "Schéma flexible par service. Mongoose ODM. Database-per-service pattern pour l'isolation.",
-      color: "#47A248",
-    },
-    {
-      icon: "⚡", name: "Redis", category: "Cache & Registry",
-      why: "Service registry dynamique (clé/valeur JSON), cache des sessions JWT, cache des notations.",
-      color: "#DC382D",
-    },
-    {
-      icon: "🐇", name: "RabbitMQ", category: "Message Broker",
-      why: "Communication asynchrone inter-services. Queues durables: auth_queue, orders_queue, etc.",
-      color: "#FF6600",
-    },
-    {
-      icon: "🐳", name: "Docker Compose", category: "Containerisation",
-      why: "Orchestration locale de 9 containers (services + infra). Réseau bridge macake-network.",
-      color: "#2496ED",
-    },
-    {
-      icon: "📱", name: "Expo / React Native", category: "Frontend Mobile",
-      why: "Cross-platform iOS/Android. expo-router, Redux Toolkit, nativewind, socket.io-client.",
-      color: "#000020",
-    },
-  ];
-  return (
-    <div className="relative w-full h-full flex items-center justify-center overflow-hidden"
-      style={{ background: "#050D1A" }}>
-      <div className="absolute inset-0 bg-grid opacity-30" />
-
-      <div className="relative z-10 w-full max-w-6xl mx-auto px-8 md:px-16">
-        <SlideHeader tag="// SLIDE 03 · STACK TECHNIQUE" title={<>Technologies <span className="text-gradient">Choisies</span></>} />
-
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {techs.map((t, i) => (
-            <motion.div key={i} {...s(i + 2)} className="card p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-lg">{t.icon}</span>
-                <div>
-                  <p className="font-bold text-sm" style={{ color: "#E8F4FD" }}>{t.name}</p>
-                  <p className="text-[10px] font-mono" style={{ color: t.color }}>{t.category}</p>
-                </div>
-              </div>
-              <p className="text-xs leading-relaxed" style={{ color: "#7B9EC9" }}>{t.why}</p>
-            </motion.div>
-          ))}
-        </div>
-
-        <motion.div {...s(8)} className="mt-4 flex flex-wrap gap-2 items-center">
-          <span className="text-xs font-mono" style={{ color: "#7B9EC9" }}>+ Also:</span>
-          {["Stripe (Paiements)", "MinIO S3 (Fichiers)", "Socket.io (Temps réel)", "JWT (Auth)", "Winston (Logs)", "bcryptjs (Hashing)"].map(t => (
-            <TechBadge key={t} label={t} color="#7B9EC9" />
-          ))}
-        </motion.div>
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────
-// SLIDE 4 — ARCHITECTURE SYSTÈME
-// ─────────────────────────────────────────────
-function Slide04Architecture() {
-  const services = [
-    { name: "auth-service", port: "3001", db: "auth_db", icon: "🔐" },
-    { name: "catalog-service", port: "3002", db: "catalog_db", icon: "🧁" },
-    { name: "order-service", port: "3003", db: "orders_db", icon: "📦" },
-    { name: "payment-service", port: "3005", db: "payment_db", icon: "💳" },
-    { name: "notation-service", port: "3006", db: "notation_db", icon: "⭐" },
-  ];
-  return (
-    <div className="relative w-full h-full flex items-center justify-center overflow-hidden"
-      style={{ background: "#050D1A" }}>
-      <div className="absolute inset-0 bg-grid opacity-30" />
-
-      <div className="relative z-10 w-full max-w-6xl mx-auto px-8 md:px-16">
-        <SlideHeader tag="// SLIDE 04 · ARCHITECTURE" title={<>Architecture <span className="text-gradient">Microservices</span></>} />
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-          {/* Left — client */}
-          <div className="space-y-3">
-            <motion.div {...s(2)} className="card p-4 text-center">
-              <div className="text-3xl mb-2">📱</div>
-              <p className="font-bold text-sm" style={{ color: "#E8F4FD" }}>Expo / React Native</p>
-              <p className="text-xs" style={{ color: "#7B9EC9" }}>Frontend Mobile</p>
-            </motion.div>
-            <motion.div {...s(3)} className="text-center text-xs font-mono" style={{ color: "#1E90FF" }}>
-              ↓ HTTP REST (port 3000)
-            </motion.div>
-            <motion.div {...s(4)} className="card p-4 text-center animate-pulse-blue">
-              <div className="text-3xl mb-2">🌐</div>
-              <p className="font-bold text-sm" style={{ color: "#00D4FF" }}>API Gateway</p>
-              <p className="text-xs" style={{ color: "#7B9EC9" }}>Port 3000 · JWT · Rate Limit</p>
-            </motion.div>
-          </div>
-
-          {/* Center — services */}
-          <div className="space-y-2">
-            <motion.div {...s(2)} className="text-center text-xs font-mono mb-2" style={{ color: "#1E90FF" }}>
-              ← TCP (sync) →
-            </motion.div>
-            {services.map((svc, i) => (
-              <motion.div key={i} {...s(i + 3)} className="card p-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span>{svc.icon}</span>
-                  <div>
-                    <p className="text-xs font-mono font-bold" style={{ color: "#E8F4FD" }}>{svc.name}</p>
-                    <p className="text-[10px] font-mono" style={{ color: "#7B9EC9" }}>:{svc.port} · {svc.db}</p>
-                  </div>
-                </div>
-                <div className="w-2 h-2 rounded-full" style={{ background: "#00D4FF" }} />
+            <div className="space-y-4">
+              <motion.div {...a(3)}>
+                <p className="text-sm md:text-base leading-relaxed" style={{ color: C.muted }}>
+                  Au Maroc, des milliers de <span style={{ color: C.text, fontWeight: 600 }}>pâtissiers talentueux</span>{" "}
+                  travaillent depuis leur domicile — gâteaux personnalisés, macarons artisanaux, pâtisseries traditionnelles.
+                </p>
               </motion.div>
-            ))}
+              <motion.div {...a(4)}>
+                <p className="text-sm md:text-base leading-relaxed" style={{ color: C.muted }}>
+                  Pourtant, ils n&apos;ont <span style={{ color: "#FF6B6B", fontWeight: 600 }}>aucun canal digital</span>{" "}
+                  pour atteindre leurs clients : pas de boutique en ligne, pas de gestion de commandes, pas de visibilité.
+                </p>
+              </motion.div>
+              <motion.div {...a(5)}>
+                <p className="text-sm md:text-base leading-relaxed" style={{ color: C.muted }}>
+                  <span style={{ color: C.cyan, fontWeight: 600 }}>MaCake</span> est né de ce constat :{" "}
+                  créer la première marketplace marocaine dédiée à la pâtisserie artisanale à domicile.
+                </p>
+              </motion.div>
+            </div>
           </div>
 
-          {/* Right — infra */}
+          {/* Right — context cards */}
           <div className="space-y-3">
             {[
-              { icon: "🍃", label: "MongoDB ×5", sub: "Database per service", color: "#47A248" },
-              { icon: "⚡", label: "Redis", sub: "Registry + Cache", color: "#DC382D" },
-              { icon: "🐇", label: "RabbitMQ", sub: "Async messaging", color: "#FF6600" },
-              { icon: "📁", label: "MinIO S3", sub: "File storage", color: "#C72D54" },
-            ].map((item, i) => (
-              <motion.div key={i} {...s(i + 3)} className="card p-3 flex items-center gap-3">
-                <span className="text-xl">{item.icon}</span>
-                <div>
-                  <p className="font-bold text-xs" style={{ color: item.color }}>{item.label}</p>
-                  <p className="text-[10px]" style={{ color: "#7B9EC9" }}>{item.sub}</p>
-                </div>
+              { icon: "🇲🇦", title: "Contexte local", desc: "Marché artisanal marocain non structuré et non digitalisé", color: "#E91E63" },
+              { icon: "📱", title: "Explosion du mobile", desc: "Plus de 70% des Marocains utilisent un smartphone pour acheter", color: C.blue },
+              { icon: "🏠", title: "Économie domicile", desc: "Croissance des micro-entrepreneurs travaillant depuis chez eux", color: "#47A248" },
+              { icon: "🎯", title: "Opportunité", desc: "Aucune solution existante ne cible spécifiquement ce marché", color: C.cyan },
+            ].map((c, i) => (
+              <motion.div key={i} {...a(i + 3)}>
+                <Card className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-lg flex items-center justify-center text-lg shrink-0"
+                    style={{ background: `${c.color}18` }}>
+                    {c.icon}
+                  </div>
+                  <div>
+                    <p className="font-bold text-sm mb-0.5" style={{ color: c.color }}>{c.title}</p>
+                    <p className="text-xs leading-relaxed" style={{ color: C.muted }}>{c.desc}</p>
+                  </div>
+                </Card>
               </motion.div>
             ))}
-            <motion.div {...s(7)} className="text-center text-xs font-mono" style={{ color: "#7B9EC9" }}>
-              🐳 Docker bridge network
-            </motion.div>
           </div>
         </div>
       </div>
-    </div>
+    </SlideWrap>
   );
 }
 
 // ─────────────────────────────────────────────
-// SLIDE 5 — API GATEWAY
+// SLIDE 3 — PROBLÉMATIQUE
 // ─────────────────────────────────────────────
-function Slide05Gateway() {
-  const routes = [
-    { key: "s1", svc: "auth-service", port: "3001", ex: "/s1/auth/login" },
-    { key: "s2", svc: "catalog-service", port: "3002", ex: "/s2/products" },
-    { key: "s3", svc: "order-service", port: "3003", ex: "/s3/order/create" },
-    { key: "s4", svc: "payment-service", port: "3005", ex: "/s4/payment" },
-    { key: "s5", svc: "notation-service", port: "3006", ex: "/s5/rating" },
+function Slide03() {
+  const problems = [
+    { icon: "👁️", title: "Manque de visibilité", desc: "Les pâtissiers ne peuvent pas exposer leurs créations à grande échelle. Leur clientèle reste limitée à l'entourage proche." },
+    { icon: "📋", title: "Gestion manuelle des commandes", desc: "Les commandes se font par WhatsApp ou téléphone : aucun suivi, risque d'oubli, paiement incertain." },
+    { icon: "🔍", title: "Difficulté à trouver", desc: "Les clients peinent à trouver des créations artisanales de qualité près de chez eux." },
+    { icon: "💸", title: "Revenus instables", desc: "Sans canal stable, les revenus des pâtissiers sont aléatoires et insuffisants." },
+    { icon: "📦", title: "Zéro traçabilité", desc: "Pas de historique de commandes, pas de suivi de livraison, pas de système de confiance." },
+    { icon: "🌐", title: "Absence de digital", desc: "Aucune plateforme spécialisée en pâtisserie artisanale n'existe sur le marché marocain." },
   ];
   return (
-    <div className="relative w-full h-full flex items-center justify-center overflow-hidden"
-      style={{ background: "#050D1A" }}>
-      <div className="absolute inset-0 bg-grid opacity-30" />
+    <SlideWrap>
+      <div className="flex items-center h-full max-w-6xl mx-auto px-8 md:px-16">
+        <div className="w-full">
+          <Tag>// SLIDE 03 · PROBLÉMATIQUE</Tag>
+          <H sub="Problèmes identifiés sur le terrain">La <span style={{ color: "#FF6B6B" }}>Problématique</span></H>
 
-      <div className="relative z-10 w-full max-w-6xl mx-auto px-8 md:px-16 grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-        {/* Left */}
-        <div>
-          <SlideHeader tag="// SLIDE 05 · API GATEWAY" title={<>API <span className="text-gradient">Gateway</span></>}
-            subtitle="Point d'entrée unique — centralise, sécurise et route les requêtes" />
-
-          <div className="space-y-3 mb-5">
-            <Bullet icon="🌐" text="Port unique 3000 exposé au client (tous les services sont masqués)" delay={3} />
-            <Bullet icon="🔐" text="Middleware JWT: vérifie le token, attache req.user au contexte" delay={4} />
-            <Bullet icon="🎭" text="AuthorizeMiddleware: contrôle RBAC (client / patissiere / livreur / admin)" delay={5} />
-            <Bullet icon="⚡" text="Rate limiting global: 100 req/IP/minute via ThrottlerModule" delay={6} />
-            <Bullet icon="🔁" text="Forward TCP: crée un client TCP vers le service cible, attend la réponse" delay={7} />
-            <Bullet icon="📡" text="WebSocket Gateway: updates temps réel (commandes, notations)" delay={8} />
-          </div>
-
-          <motion.div {...s(9)}>
-            <CodeSnip lines={[
-              <><span className="kw">const</span> instance = <span className="kw">await</span> <span className="fn">getServiceInstance</span>(<span className="str">&apos;s3&apos;</span>);</>,
-              <><span className="kw">const</span> client = <span className="fn">createTcpClient</span>(instance.host, instance.port);</>,
-              <><span className="kw">return</span> client.<span className="fn">send</span>(pattern, payload);</>,
-            ]} />
-          </motion.div>
-        </div>
-
-        {/* Right — routing table */}
-        <motion.div {...s(3)} className="glass-bright rounded-xl p-5">
-          <p className="text-xs font-mono mb-4" style={{ color: "#7B9EC9" }}>// Table de routage Gateway</p>
-          <div className="space-y-2">
-            {routes.map((r, i) => (
-              <motion.div key={i} {...s(i + 4)} className="card p-3">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="tech-badge text-[10px]">{r.key}</span>
-                  <span className="text-[10px] font-mono" style={{ color: "#7B9EC9" }}>:{r.port}</span>
-                </div>
-                <p className="text-xs font-mono" style={{ color: "#00D4FF" }}>{r.svc}</p>
-                <p className="text-[10px] font-mono" style={{ color: "#7B9EC9" }}>{r.ex}</p>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {problems.map((p, i) => (
+              <motion.div key={i} {...a(i + 2)}>
+                <Card style={{ height: "100%" }}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xl">{p.icon}</span>
+                    <div className="h-px flex-1" style={{ background: "rgba(255,107,107,0.2)" }} />
+                  </div>
+                  <p className="font-bold text-xs md:text-sm mb-1.5" style={{ color: "#FF8A80" }}>{p.title}</p>
+                  <p className="text-[11px] md:text-xs leading-relaxed" style={{ color: C.muted }}>{p.desc}</p>
+                </Card>
               </motion.div>
             ))}
           </div>
-        </motion.div>
+        </div>
       </div>
-    </div>
+    </SlideWrap>
   );
 }
 
 // ─────────────────────────────────────────────
-// SLIDE 6 — SERVICE DISCOVERY (CUSTOM)
+// SLIDE 4 — OBJECTIFS
 // ─────────────────────────────────────────────
-function Slide06ServiceDiscovery() {
+function Slide04() {
+  const objectives = [
+    { n: "01", icon: "🛒", title: "Marketplace dédiée", desc: "Créer une plateforme spécialisée permettant aux pâtissiers de vendre leurs créations en ligne facilement." },
+    { n: "02", icon: "📱", title: "Visibilité numérique", desc: "Offrir à chaque pâtissier une vitrine digitale : catalogue, photos, prix, avis clients." },
+    { n: "03", icon: "⚡", title: "Commandes simplifiées", desc: "Automatiser le processus de commande : de la sélection produit à la confirmation livraison." },
+    { n: "04", icon: "🛵", title: "Livraison intégrée", desc: "Connecter les livreurs indépendants aux commandes via un modèle de proposition de prix (InDrive)." },
+    { n: "05", icon: "🔐", title: "Paiement sécurisé", desc: "Système escrow : paiement bloqué jusqu'à confirmation de livraison par le client." },
+    { n: "06", icon: "⭐", title: "Système de confiance", desc: "Notations, avis et suivi de réputation pour garantir la qualité et instaurer la confiance." },
+  ];
   return (
-    <div className="relative w-full h-full flex items-center justify-center overflow-hidden"
-      style={{ background: "#050D1A" }}>
-      <div className="absolute inset-0 bg-grid opacity-30" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full blur-[120px] opacity-8"
-        style={{ background: "#DC382D" }} />
+    <SlideWrap>
+      <div className="flex items-center h-full max-w-6xl mx-auto px-8 md:px-16">
+        <div className="w-full">
+          <Tag>// SLIDE 04 · OBJECTIFS</Tag>
+          <H sub="Ce que le projet vise à accomplir">Objectifs du <span style={{ color: C.cyan }}>Projet</span></H>
 
-      <div className="relative z-10 w-full max-w-6xl mx-auto px-8 md:px-16 grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-        {/* Left */}
-        <div>
-          <SlideHeader tag="// SLIDE 06 · SERVICE DISCOVERY" title={<>Service <span className="text-gradient">Discovery</span></>}
-            subtitle="Implémentation custom basée sur Redis — sans outil externe (pas de Consul/Eureka)" />
-
-          <div className="space-y-3">
-            <Bullet icon="📝" text="Chaque service appelle registerServiceInfo() au démarrage" delay={3} />
-            <Bullet icon="🗝️" text="Clé Redis: serviceKey:{routeKey} → JSON {instances, endpoints}" delay={4} />
-            <Bullet icon="🌐" text="Le Gateway lit Redis pour localiser dynamiquement le service cible" delay={5} />
-            <Bullet icon="⚖️" text="Load balancing: sélection aléatoire parmi les instances disponibles" delay={6} />
-            <Bullet icon="🔌" text="Avantage: zéro dépendance externe, intégré nativement avec le stack NestJS+Redis" delay={7} />
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {objectives.map((o, i) => (
+              <motion.div key={i} {...a(i + 2)}>
+                <Card className="h-full">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="font-mono font-black text-xs" style={{ color: C.blue }}>{o.n}</span>
+                    <span className="text-lg">{o.icon}</span>
+                  </div>
+                  <p className="font-bold text-xs md:text-sm mb-1" style={{ color: C.text }}>{o.title}</p>
+                  <p className="text-[11px] md:text-xs leading-relaxed" style={{ color: C.muted }}>{o.desc}</p>
+                </Card>
+              </motion.div>
+            ))}
           </div>
         </div>
-
-        {/* Right — code */}
-        <motion.div {...s(3)} className="space-y-4">
-          <div className="glass-bright rounded-xl p-4">
-            <p className="text-[10px] font-mono mb-3" style={{ color: "#7B9EC9" }}>
-              // auth-service/src — Enregistrement au démarrage
-            </p>
-            <CodeSnip lines={[
-              <><span className="cm">// main.ts — bootstrap()</span></>,
-              <><span className="kw">await</span> redisService.<span className="fn">registerServiceInfo</span>{"({"}</>,
-              <>{"  "}<span className="str">serviceName</span>: <span className="str">&apos;auth-service&apos;</span>,</>,
-              <>{"  "}<span className="str">host</span>: <span className="str">&apos;auth-service&apos;</span>, <span className="cm">// container name</span></>,
-              <>{"  "}<span className="str">port</span>: <span className="num">3001</span>,</>,
-              <>{"  "}<span className="str">routeKey</span>: <span className="str">&apos;s1&apos;</span>,</>,
-              <>{"}"});</>,
-            ]} />
-          </div>
-
-          <div className="glass-bright rounded-xl p-4">
-            <p className="text-[10px] font-mono mb-3" style={{ color: "#7B9EC9" }}>
-              // Redis — Structure stockée
-            </p>
-            <CodeSnip lines={[
-              <><span className="cm">// KEY: serviceKey:s1</span></>,
-              <>{"{"}</>,
-              <>{"  "}<span className="str">&quot;serviceName&quot;</span>: <span className="str">&quot;auth-service&quot;</span>,</>,
-              <>{"  "}<span className="str">&quot;instances&quot;</span>: [{"{"}</>,
-              <>{"    "}<span className="str">&quot;host&quot;</span>: <span className="str">&quot;auth-service&quot;</span>, <span className="str">&quot;port&quot;</span>: <span className="num">3001</span></>,
-              <>{"  "}{"}"}{"]"},</>,
-              <>{"  "}<span className="str">&quot;endpoints&quot;</span>: [<span className="str">&quot;/auth/login&quot;</span>, ...]</>,
-              <>{"}"}</>,
-            ]} />
-          </div>
-        </motion.div>
       </div>
-    </div>
+    </SlideWrap>
   );
 }
 
 // ─────────────────────────────────────────────
-// SLIDE 7 — FLUX DE DONNÉES
+// SLIDE 5 — SOLUTION (MACAKE)
 // ─────────────────────────────────────────────
-function Slide07DataFlow() {
+function Slide05() {
+  return (
+    <SlideWrap>
+      <div className="flex items-center h-full max-w-6xl mx-auto px-8 md:px-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center w-full">
+          {/* Left */}
+          <div>
+            <Tag>// SLIDE 05 · SOLUTION</Tag>
+            <H sub="L'idée globale de la plateforme">La Solution : <span style={{ color: C.cyan }}>MaCake</span></H>
+
+            <motion.div {...a(3)} className="mb-5 rounded-xl p-4"
+              style={{ background: "rgba(0,212,255,0.06)", border: `1px solid ${C.borderBright}` }}>
+              <p className="text-sm md:text-base leading-relaxed" style={{ color: C.text }}>
+                MaCake est une <strong style={{ color: C.cyan }}>marketplace mobile-first</strong> qui met en relation directe les pâtissiers à domicile avec leurs clients, intégrant commande, livraison et paiement dans un seul écosystème.
+              </p>
+            </motion.div>
+
+            <div className="space-y-3">
+              {[
+                { icon: "🔗", prob: "Manque de visibilité", sol: "Vitrine digitale avec catalogue produits" },
+                { icon: "📋", prob: "Commandes manuelles", sol: "Système de commande automatisé & traçable" },
+                { icon: "💸", prob: "Paiement incertain", sol: "Paiement sécurisé via Stripe (escrow)" },
+                { icon: "🛵", prob: "Livraison désorganisée", sol: "Livreurs indépendants avec offres de prix" },
+              ].map((r, i) => (
+                <motion.div key={i} {...a(i + 4)} className="flex items-center gap-3">
+                  <span className="text-base">{r.icon}</span>
+                  <div className="flex-1 h-px" style={{ background: C.border }} />
+                  <div className="text-right">
+                    <p className="text-[10px] line-through" style={{ color: "#FF6B6B44" }}>{r.prob}</p>
+                    <p className="text-xs font-medium" style={{ color: C.cyan }}>{r.sol}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+
+          {/* Right — flow diagram */}
+          <motion.div {...a(3)}>
+            <Card>
+              <p className="text-[10px] font-mono mb-4" style={{ color: C.muted }}>// Flux principal MaCake</p>
+              <div className="space-y-2">
+                {[
+                  { icon: "👤", label: "Client", action: "Parcourt le catalogue", color: C.blue },
+                  { arrow: true },
+                  { icon: "🛒", label: "Commande", action: "Sélectionne & commande", color: C.cyan },
+                  { arrow: true },
+                  { icon: "👩‍🍳", label: "Pâtissier", action: "Accepte & prépare", color: "#E91E63" },
+                  { arrow: true },
+                  { icon: "🛵", label: "Livreur", action: "Récupère & livre", color: "#FF6600" },
+                  { arrow: true },
+                  { icon: "✅", label: "Confirmation", action: "Client confirme → paiement libéré", color: "#47A248" },
+                ].map((step, i) => {
+                  if ("arrow" in step) {
+                    return <div key={i} className="text-center text-sm font-mono" style={{ color: C.muted }}>↓</div>;
+                  }
+                  return (
+                    <div key={i} className="flex items-center gap-3 rounded-lg px-3 py-2"
+                      style={{ background: `${step.color}0f`, border: `1px solid ${step.color}25` }}>
+                      <span className="text-base">{step.icon}</span>
+                      <div>
+                        <p className="text-xs font-bold" style={{ color: step.color }}>{step.label}</p>
+                        <p className="text-[10px]" style={{ color: C.muted }}>{step.action}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          </motion.div>
+        </div>
+      </div>
+    </SlideWrap>
+  );
+}
+
+// ─────────────────────────────────────────────
+// SLIDE 6 — ACTEURS & RÔLES
+// ─────────────────────────────────────────────
+function Slide06() {
+  const actors = [
+    {
+      icon: "👤", name: "Client", color: C.blue,
+      can: ["Créer un compte et se connecter", "Parcourir le catalogue produits", "Passer une commande personnalisée", "Suivre l'état de sa commande", "Choisir un livreur et confirmer livraison", "Noter le produit et le pâtissier"],
+    },
+    {
+      icon: "👩‍🍳", name: "Pâtissier", color: "#E91E63",
+      can: ["Créer et gérer son catalogue", "Recevoir et accepter les commandes", "Marquer une commande comme prête", "Gérer son profil et sa réputation", "Suivre ses revenus et statistiques"],
+    },
+    {
+      icon: "🛡️", name: "Admin", color: "#F59E0B",
+      can: ["Gérer tous les utilisateurs", "Superviser les commandes", "Résoudre les litiges", "Configurer les commissions", "Accéder aux tableaux de bord", "Suspendre des comptes"],
+    },
+  ];
+  return (
+    <SlideWrap>
+      <div className="flex items-center h-full max-w-6xl mx-auto px-8 md:px-16">
+        <div className="w-full">
+          <Tag>// SLIDE 06 · ACTEURS & RÔLES</Tag>
+          <H sub="Les utilisateurs et leurs permissions">Acteurs du <span style={{ color: C.cyan }}>Système</span></H>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {actors.map((actor, i) => (
+              <motion.div key={i} {...a(i + 2)}>
+                <Card style={{ borderColor: `${actor.color}30`, height: "100%" }}>
+                  {/* Header */}
+                  <div className="flex items-center gap-3 mb-4 pb-3" style={{ borderBottom: `1px solid ${actor.color}20` }}>
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl"
+                      style={{ background: `${actor.color}18` }}>
+                      {actor.icon}
+                    </div>
+                    <div>
+                      <p className="font-black text-lg" style={{ color: actor.color, fontFamily: "var(--font-mono)" }}>{actor.name}</p>
+                      <Chip label="Rôle système" color={actor.color} />
+                    </div>
+                  </div>
+
+                  {/* Permissions */}
+                  <ul className="space-y-2">
+                    {actor.can.map((c, j) => (
+                      <li key={j} className="flex items-start gap-2 text-xs" style={{ color: C.muted }}>
+                        <span className="mt-0.5 shrink-0" style={{ color: actor.color }}>✓</span>
+                        {c}
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </SlideWrap>
+  );
+}
+
+// ─────────────────────────────────────────────
+// SLIDE 7 — FONCTIONNALITÉS PRINCIPALES
+// ─────────────────────────────────────────────
+function Slide07() {
+  const features = [
+    {
+      icon: "🧁", title: "Gestion des produits", color: "#E91E63",
+      items: ["Création de produits avec photos", "Prix, description, ingrédients", "Catégories (gâteau, macaron, tarte…)", "Activation / désactivation produit"],
+    },
+    {
+      icon: "📦", title: "Système de commandes", color: C.blue,
+      items: ["Commande personnalisable (couleur, message)", "Workflow complet : pending → delivered", "Suivi en temps réel (WebSocket)", "Historique des commandes par rôle"],
+    },
+    {
+      icon: "🔐", title: "Comptes utilisateurs", color: "#F59E0B",
+      items: ["Inscription & connexion JWT", "Refresh token (HttpOnly cookie)", "Profil avec photo (MinIO S3)", "Wallet intégré (recharge / débit)"],
+    },
+    {
+      icon: "⭐", title: "Notations & avis", color: "#47A248",
+      items: ["Note de 1 à 5 étoiles", "Commentaire sur produit ou pâtissier", "Moyenne calculée automatiquement", "Likes et abonnements pâtissiers"],
+    },
+  ];
+  return (
+    <SlideWrap>
+      <div className="flex items-center h-full max-w-6xl mx-auto px-8 md:px-16">
+        <div className="w-full">
+          <Tag>// SLIDE 07 · FONCTIONNALITÉS</Tag>
+          <H sub="Les 4 modules principaux de la plateforme">Fonctionnalités <span style={{ color: C.cyan }}>Principales</span></H>
+
+          <div className="grid grid-cols-2 gap-4">
+            {features.map((f, i) => (
+              <motion.div key={i} {...a(i + 2)}>
+                <Card style={{ borderColor: `${f.color}25`, height: "100%" }}>
+                  <div className="flex items-center gap-3 mb-3 pb-2" style={{ borderBottom: `1px solid ${f.color}20` }}>
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center text-xl"
+                      style={{ background: `${f.color}15` }}>
+                      {f.icon}
+                    </div>
+                    <p className="font-bold text-sm md:text-base" style={{ color: f.color }}>{f.title}</p>
+                  </div>
+                  <ul className="space-y-1.5">
+                    {f.items.map((item, j) => (
+                      <li key={j} className="flex items-start gap-2 text-xs" style={{ color: C.muted }}>
+                        <span className="shrink-0 mt-0.5" style={{ color: f.color }}>→</span>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </SlideWrap>
+  );
+}
+
+// ─────────────────────────────────────────────
+// SLIDE 8 — USER FLOW (SCÉNARIO)
+// ─────────────────────────────────────────────
+function Slide08() {
   const steps = [
-    { n: "01", label: "Client → Gateway", detail: "POST /s3/order/find-all + Bearer token", color: "#1E90FF" },
-    { n: "02", label: "Gateway: JWT check", detail: "AuthMiddleware vérifie le JWT, extrait userId + role", color: "#00D4FF" },
-    { n: "03", label: "Gateway: Redis lookup", detail: "getServiceInstance('s3') → {host:'order-service', port:3003}", color: "#DC382D" },
-    { n: "04", label: "Gateway → order-service", detail: "TCP send({userId, role, query}) — connection pool NestJS", color: "#FF6600" },
-    { n: "05", label: "order-service → MongoDB", detail: "Orders.find({userId}) → liste des commandes", color: "#47A248" },
-    { n: "06", label: "Agrégation RabbitMQ", detail: "order-service publie auth_queue pour enrichir les données user", color: "#FF6600" },
-    { n: "07", label: "Réponse → Client", detail: "Gateway retransmet la réponse TCP en HTTP JSON 200", color: "#1E90FF" },
+    { n: "01", icon: "🔍", actor: "Client", action: "Parcourt le catalogue", detail: "Filtre par ville, catégorie, prix ou note", color: C.blue },
+    { n: "02", icon: "🎂", actor: "Client", action: "Sélectionne un produit", detail: "Voit les photos, prix, avis, pâtissier", color: C.blue },
+    { n: "03", icon: "✏️", actor: "Client", action: "Personnalise & commande", detail: "Couleur, message, garniture, adresse livraison", color: C.cyan },
+    { n: "04", icon: "💳", actor: "Client", action: "Paie en ligne", detail: "Stripe sécurisé — montant bloqué (escrow)", color: "#F59E0B" },
+    { n: "05", icon: "✅", actor: "Pâtissier", action: "Accepte la commande", detail: "Reçoit une notification, confirme et prépare", color: "#E91E63" },
+    { n: "06", icon: "🛵", actor: "Livreur", action: "Propose un prix de livraison", detail: "Modèle InDrive — client choisit son livreur", color: "#FF6600" },
+    { n: "07", icon: "📬", actor: "Livreur", action: "Effectue la livraison", detail: "Se rend à l'adresse et remet la commande", color: "#FF6600" },
+    { n: "08", icon: "🎉", actor: "Client", action: "Confirme & note", detail: "Confirme réception → paiement libéré → note", color: "#47A248" },
   ];
   return (
-    <div className="relative w-full h-full flex items-center justify-center overflow-hidden"
-      style={{ background: "#050D1A" }}>
-      <div className="absolute inset-0 bg-grid opacity-30" />
+    <SlideWrap>
+      <div className="flex items-center h-full max-w-6xl mx-auto px-8 md:px-16">
+        <div className="w-full">
+          <Tag>// SLIDE 08 · SCÉNARIO UTILISATEUR</Tag>
+          <H sub="De la navigation jusqu'à la livraison">User Flow — <span style={{ color: C.cyan }}>Commande Complète</span></H>
 
-      <div className="relative z-10 w-full max-w-6xl mx-auto px-8 md:px-16">
-        <SlideHeader tag="// SLIDE 07 · DATA FLOW" title={<>Flux de <span className="text-gradient">Données</span></>}
-          subtitle="Exemple: récupération des commandes avec données agrégées" />
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {steps.map((st, i) => (
-            <motion.div key={i} {...s(i + 2)} className={`card p-3 flex items-start gap-3 ${i === 6 ? "md:col-span-2" : ""}`}>
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 font-mono font-bold text-xs"
-                style={{ background: `${st.color}18`, color: st.color, border: `1px solid ${st.color}40` }}>
-                {st.n}
-              </div>
-              <div>
-                <p className="font-bold text-xs md:text-sm" style={{ color: "#E8F4FD" }}>{st.label}</p>
-                <p className="text-[11px] md:text-xs font-mono" style={{ color: "#7B9EC9" }}>{st.detail}</p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────
-// SLIDE 8 — OPTIMISATION
-// ─────────────────────────────────────────────
-function Slide08Optimization() {
-  const opts = [
-    {
-      icon: "📦", title: "Batch findByIds()",
-      desc: "Plutôt que N appels individuels pour enrichir les commandes, auth-service expose findByIds(ids[]) — un seul appel TCP pour N utilisateurs.",
-      tag: "N+1 → O(1)",
-      tagColor: "#47A248",
-    },
-    {
-      icon: "⚡", title: "Cache Redis des notations",
-      desc: "Les moyennes de notation sont stockées en cache Redis avec TTL. getAverageForUsers([...]) évite les recalculs répétitifs.",
-      tag: "Cache TTL",
-      tagColor: "#DC382D",
-    },
-    {
-      icon: "🐇", title: "Async RabbitMQ",
-      desc: "Les opérations non critiques (notifications, mises à jour statistiques) passent par RabbitMQ. Pas de blocage du thread principal.",
-      tag: "Non-blocking",
-      tagColor: "#FF6600",
-    },
-    {
-      icon: "🗃️", title: "Pagination & filtres",
-      desc: "Tous les endpoints list supportent la pagination. Les produits sont filtrables par ville, prix, note — index MongoDB sur ces champs.",
-      tag: "Indexes DB",
-      tagColor: "#1E90FF",
-    },
-    {
-      icon: "🔒", title: "Connexion pool TCP",
-      desc: "Le Gateway maintient des connexions TCP persistantes vers chaque service. Pas de handshake à chaque requête — latence réduite.",
-      tag: "Keep-alive",
-      tagColor: "#00D4FF",
-    },
-    {
-      icon: "📁", title: "Upload S3 base64",
-      desc: "Les images sont transférées en base64 via TCP, uploadées sur MinIO S3 par le service concerné — découplage du stockage.",
-      tag: "Async upload",
-      tagColor: "#C72D54",
-    },
-  ];
-  return (
-    <div className="relative w-full h-full flex items-center justify-center overflow-hidden"
-      style={{ background: "#050D1A" }}>
-      <div className="absolute inset-0 bg-grid opacity-30" />
-
-      <div className="relative z-10 w-full max-w-6xl mx-auto px-8 md:px-16">
-        <SlideHeader tag="// SLIDE 08 · OPTIMISATION" title={<>Stratégies <span className="text-gradient">d&apos;Optimisation</span></>} />
-
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {opts.map((o, i) => (
-            <motion.div key={i} {...s(i + 2)} className="card p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xl">{o.icon}</span>
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded"
-                  style={{ background: `${o.tagColor}18`, color: o.tagColor, border: `1px solid ${o.tagColor}40` }}>
-                  {o.tag}
-                </span>
-              </div>
-              <p className="font-bold text-xs mb-1" style={{ color: "#E8F4FD" }}>{o.title}</p>
-              <p className="text-[11px] leading-relaxed" style={{ color: "#7B9EC9" }}>{o.desc}</p>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────
-// SLIDE 9 — DÉFIS & SOLUTIONS
-// ─────────────────────────────────────────────
-function Slide09Challenges() {
-  const pairs = [
-    {
-      challenge: "Timeout TCP inter-services",
-      solution: "Heartbeat RabbitMQ (30s) + retry automatique. Pool de connexions TCP persistantes au Gateway.",
-      cIcon: "⏱️", sIcon: "✅",
-    },
-    {
-      challenge: "Cohérence des données entre services",
-      solution: "Event-driven via RabbitMQ: notation-service s'abonne à catalog_queue pour rester synchronisé.",
-      cIcon: "🔄", sIcon: "✅",
-    },
-    {
-      challenge: "Gestion des refresh tokens sécurisée",
-      solution: "Refresh token stocké en HttpOnly cookie (30j). Access token court (15min). Logout invalide dans Redis.",
-      cIcon: "🔐", sIcon: "✅",
-    },
-    {
-      challenge: "Isolation des bases de données",
-      solution: "Database-per-service pattern: chaque service a son propre MongoDB (auth_db, orders_db, etc.).",
-      cIcon: "🗃️", sIcon: "✅",
-    },
-    {
-      challenge: "Montée en charge et scalabilité",
-      solution: "Service registry multi-instances: Redis stocke un array d'instances. Gateway sélectionne aléatoirement.",
-      cIcon: "📈", sIcon: "✅",
-    },
-    {
-      challenge: "Paiement sécurisé (escrow)",
-      solution: "Stripe PaymentIntent + status 'blocked'. Libéré uniquement après confirmation livraison client.",
-      cIcon: "💳", sIcon: "✅",
-    },
-  ];
-  return (
-    <div className="relative w-full h-full flex items-center justify-center overflow-hidden"
-      style={{ background: "#050D1A" }}>
-      <div className="absolute inset-0 bg-grid opacity-30" />
-
-      <div className="relative z-10 w-full max-w-6xl mx-auto px-8 md:px-16">
-        <SlideHeader tag="// SLIDE 09 · DÉFIS & SOLUTIONS" title={<>Défis <span className="text-gradient">& Solutions</span></>} />
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {pairs.map((p, i) => (
-            <motion.div key={i} {...s(i + 2)} className="card p-4">
-              <div className="flex items-start gap-2 mb-2 pb-2" style={{ borderBottom: "1px solid rgba(30,144,255,0.1)" }}>
-                <span className="text-base">{p.cIcon}</span>
-                <p className="text-xs font-bold" style={{ color: "#FF6B6B" }}>{p.challenge}</p>
-              </div>
-              <div className="flex items-start gap-2">
-                <span className="text-base">{p.sIcon}</span>
-                <p className="text-xs leading-relaxed" style={{ color: "#7B9EC9" }}>{p.solution}</p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────
-// SLIDE 10 — CONCLUSION
-// ─────────────────────────────────────────────
-function Slide10Conclusion() {
-  const skills = [
-    "Architecture microservices NestJS",
-    "API Gateway & Service Discovery Redis",
-    "Communication TCP + RabbitMQ",
-    "JWT Auth & RBAC middleware",
-    "Docker Compose orchestration",
-    "Stripe escrow payment flow",
-  ];
-  const improvements = [
-    { icon: "☸️", text: "Migration vers Kubernetes pour la production" },
-    { icon: "⚡", text: "Remplacer TCP par gRPC (Protocol Buffers)" },
-    { icon: "📊", text: "Observabilité: OpenTelemetry + Grafana" },
-    { icon: "🔁", text: "CQRS + Event Sourcing pour l'audit trail" },
-  ];
-  return (
-    <div className="relative w-full h-full flex items-center justify-center overflow-hidden"
-      style={{ background: "linear-gradient(135deg, #050D1A 0%, #0A1628 70%, #050D1A 100%)" }}>
-      <div className="absolute inset-0 bg-grid opacity-30" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full blur-[120px] opacity-10 animate-pulse-blue"
-        style={{ background: "radial-gradient(circle, #1E90FF, transparent 70%)" }} />
-
-      <div className="relative z-10 w-full max-w-6xl mx-auto px-8 md:px-16 grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-        {/* Center — title */}
-        <div className="md:col-span-1">
-          <motion.div {...s(0)} className="flex items-center gap-2 mb-4">
-            <div className="w-2 h-2 rounded-full animate-blink" style={{ background: "#00D4FF" }} />
-            <span className="text-xs font-mono" style={{ color: "#7B9EC9" }}>// SLIDE 10 · FIN</span>
-          </motion.div>
-
-          <motion.h2 {...s(1)} className="text-4xl md:text-5xl font-black leading-tight mb-4 text-gradient">
-            Merci !
-          </motion.h2>
-
-          <motion.p {...s(2)} className="text-sm leading-relaxed mb-4" style={{ color: "#7B9EC9" }}>
-            MaCake nous a permis de concevoir et implémenter une architecture microservices complète, de la sécurité au déploiement.
-          </motion.p>
-
-          <motion.div {...s(3)} className="glass-bright rounded-xl p-4 text-center">
-            <p className="text-3xl font-black text-gradient mb-1">5</p>
-            <p className="text-xs" style={{ color: "#7B9EC9" }}>microservices</p>
-            <div className="h-px w-12 mx-auto my-2" style={{ background: "rgba(30,144,255,0.3)" }} />
-            <p className="text-3xl font-black text-gradient mb-1">9</p>
-            <p className="text-xs" style={{ color: "#7B9EC9" }}>containers Docker</p>
-            <div className="h-px w-12 mx-auto my-2" style={{ background: "rgba(30,144,255,0.3)" }} />
-            <p className="text-3xl font-black text-gradient mb-1">+40</p>
-            <p className="text-xs" style={{ color: "#7B9EC9" }}>endpoints API</p>
-          </motion.div>
-        </div>
-
-        {/* Skills */}
-        <div>
-          <motion.p {...s(2)} className="text-xs font-mono mb-3" style={{ color: "#7B9EC9" }}>// Compétences acquises</motion.p>
-          <div className="space-y-2">
-            {skills.map((sk, i) => (
-              <motion.div key={i} {...s(i + 3)} className="card p-2.5 flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "#1E90FF" }} />
-                <p className="text-xs" style={{ color: "#A8C8E8" }}>{sk}</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {steps.map((step, i) => (
+              <motion.div key={i} {...a(i + 2)}>
+                <Card style={{ borderColor: `${step.color}25` }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-mono font-black text-[10px]" style={{ color: step.color }}>{step.n}</span>
+                    <Chip label={step.actor} color={step.color} />
+                  </div>
+                  <div className="text-xl mb-2">{step.icon}</div>
+                  <p className="font-bold text-xs mb-1" style={{ color: C.text }}>{step.action}</p>
+                  <p className="text-[10px] leading-relaxed" style={{ color: C.muted }}>{step.detail}</p>
+                </Card>
               </motion.div>
             ))}
           </div>
         </div>
-
-        {/* Improvements */}
-        <div>
-          <motion.p {...s(2)} className="text-xs font-mono mb-3" style={{ color: "#7B9EC9" }}>// Améliorations futures</motion.p>
-          <div className="space-y-2">
-            {improvements.map((imp, i) => (
-              <motion.div key={i} {...s(i + 3)} className="card p-3 flex items-start gap-2">
-                <span className="text-base">{imp.icon}</span>
-                <p className="text-xs leading-relaxed" style={{ color: "#7B9EC9" }}>{imp.text}</p>
-              </motion.div>
-            ))}
-          </div>
-
-          <motion.div {...s(8)} className="mt-3 glass-bright rounded-xl p-3 text-center">
-            <p className="text-xs font-mono" style={{ color: "#00D4FF" }}>Questions ? 🎤</p>
-          </motion.div>
-        </div>
       </div>
-    </div>
+    </SlideWrap>
   );
 }
 
 // ─────────────────────────────────────────────
-// SLIDE REGISTRY
+// SLIDE 9 — UML DIAGRAMME DE CLASSES
+// ─────────────────────────────────────────────
+function Slide09() {
+  return (
+    <SlideWrap>
+      <div className="flex items-center h-full max-w-7xl mx-auto px-8 md:px-12">
+        <div className="w-full">
+          <Tag>// SLIDE 09 · UML</Tag>
+          <H sub="Principales classes et leurs relations">Diagramme de <span style={{ color: C.cyan }}>Classes</span></H>
+
+          <motion.div {...a(2)} className="w-full overflow-hidden rounded-xl" style={{ border: `1px solid ${C.border}`, background: C.card }}>
+            <svg viewBox="0 0 900 380" className="w-full" style={{ fontFamily: "var(--font-mono)" }}>
+              <defs>
+                <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                  <path d="M0,0 L0,6 L8,3 z" fill={C.muted} />
+                </marker>
+                <marker id="arrow-inh" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+                  <polygon points="0,0 10,5 0,10" fill="none" stroke={C.cyan} strokeWidth="1.5" />
+                </marker>
+              </defs>
+
+              {/* ── User (base) ── */}
+              <g>
+                <rect x="340" y="10" width="160" height="100" rx="6" fill="#0A1628" stroke={C.cyan} strokeWidth="1.5" />
+                <rect x="340" y="10" width="160" height="24" rx="6" fill={`${C.cyan}22`} />
+                <text x="420" y="26" textAnchor="middle" fontSize="11" fontWeight="bold" fill={C.cyan}>User</text>
+                {["id: string", "name: string", "email: string", "password: string", "role: enum", "phone: string"].map((f, i) => (
+                  <text key={i} x="350" y={48 + i * 11} fontSize="9" fill={C.muted}>{f}</text>
+                ))}
+              </g>
+
+              {/* ── Client ── */}
+              <g>
+                <rect x="30" y="155" width="150" height="65" rx="6" fill="#0A1628" stroke={C.blue} strokeWidth="1.5" />
+                <rect x="30" y="155" width="150" height="22" rx="6" fill={`${C.blue}22`} />
+                <text x="105" y="170" textAnchor="middle" fontSize="11" fontWeight="bold" fill={C.blue}>Client</text>
+                {["walletBalance: number", "ordersIds: string[]"].map((f, i) => (
+                  <text key={i} x="40" y={190 + i * 12} fontSize="9" fill={C.muted}>{f}</text>
+                ))}
+              </g>
+
+              {/* ── Patissiere ── */}
+              <g>
+                <rect x="210" y="155" width="160" height="75" rx="6" fill="#0A1628" stroke="#E91E63" strokeWidth="1.5" />
+                <rect x="210" y="155" width="160" height="22" rx="6" fill="#E91E6322" />
+                <text x="290" y="170" textAnchor="middle" fontSize="11" fontWeight="bold" fill="#E91E63">Patissiere</text>
+                {["bio: string", "earnings: number", "followersCount: number", "ratingAverage: float"].map((f, i) => (
+                  <text key={i} x="220" y={190 + i * 12} fontSize="9" fill={C.muted}>{f}</text>
+                ))}
+              </g>
+
+              {/* ── Admin ── */}
+              <g>
+                <rect x="400" y="155" width="150" height="65" rx="6" fill="#0A1628" stroke="#F59E0B" strokeWidth="1.5" />
+                <rect x="400" y="155" width="150" height="22" rx="6" fill="#F59E0B22" />
+                <text x="475" y="170" textAnchor="middle" fontSize="11" fontWeight="bold" fill="#F59E0B">Admin</text>
+                {["permissions: string[]", "fullAccess: boolean"].map((f, i) => (
+                  <text key={i} x="410" y={190 + i * 12} fontSize="9" fill={C.muted}>{f}</text>
+                ))}
+              </g>
+
+              {/* ── Product ── */}
+              <g>
+                <rect x="580" y="10" width="155" height="100" rx="6" fill="#0A1628" stroke="#47A248" strokeWidth="1.5" />
+                <rect x="580" y="10" width="155" height="24" rx="6" fill="#47A24822" />
+                <text x="657" y="26" textAnchor="middle" fontSize="11" fontWeight="bold" fill="#47A248">Product</text>
+                {["id: string", "title: string", "price: number", "images: string[]", "patissiereId: string", "categoryId: string"].map((f, i) => (
+                  <text key={i} x="590" y={48 + i * 11} fontSize="9" fill={C.muted}>{f}</text>
+                ))}
+              </g>
+
+              {/* ── Order ── */}
+              <g>
+                <rect x="580" y="155" width="155" height="85" rx="6" fill="#0A1628" stroke="#FF6600" strokeWidth="1.5" />
+                <rect x="580" y="155" width="155" height="22" rx="6" fill="#FF660022" />
+                <text x="657" y="170" textAnchor="middle" fontSize="11" fontWeight="bold" fill="#FF6600">Order</text>
+                {["id: string", "clientId: string", "patissiereId: string", "status: enum", "totalPrice: number", "createdAt: Date"].map((f, i) => (
+                  <text key={i} x="590" y={190 + i * 11} fontSize="9" fill={C.muted}>{f}</text>
+                ))}
+              </g>
+
+              {/* ── OrderItem ── */}
+              <g>
+                <rect x="760" y="155" width="130" height="75" rx="6" fill="#0A1628" stroke="#FF6600" strokeWidth="1" strokeDasharray="4" />
+                <rect x="760" y="155" width="130" height="22" rx="6" fill="#FF660015" />
+                <text x="825" y="170" textAnchor="middle" fontSize="11" fontWeight="bold" fill="#FF6600">OrderItem</text>
+                {["orderId: string", "productId: string", "quantity: number", "customization: obj"].map((f, i) => (
+                  <text key={i} x="768" y={190 + i * 12} fontSize="9" fill={C.muted}>{f}</text>
+                ))}
+              </g>
+
+              {/* ── Rating ── */}
+              <g>
+                <rect x="760" y="10" width="130" height="75" rx="6" fill="#0A1628" stroke="#FFD700" strokeWidth="1.5" />
+                <rect x="760" y="10" width="130" height="22" rx="6" fill="#FFD70022" />
+                <text x="825" y="26" textAnchor="middle" fontSize="11" fontWeight="bold" fill="#FFD700">Rating</text>
+                {["fromUserId: string", "toUserId: string", "stars: number(1-5)", "comment: string"].map((f, i) => (
+                  <text key={i} x="768" y={48 + i * 12} fontSize="9" fill={C.muted}>{f}</text>
+                ))}
+              </g>
+
+              {/* ── Inheritance arrows: User → Client, Patissiere, Admin ── */}
+              {/* User → Client */}
+              <line x1="390" y1="110" x2="105" y2="155" stroke={C.cyan} strokeWidth="1.5" strokeDasharray="6,3" markerEnd="url(#arrow-inh)" />
+              {/* User → Patissiere */}
+              <line x1="400" y1="110" x2="290" y2="155" stroke={C.cyan} strokeWidth="1.5" strokeDasharray="6,3" markerEnd="url(#arrow-inh)" />
+              {/* User → Admin */}
+              <line x1="450" y1="110" x2="475" y2="155" stroke={C.cyan} strokeWidth="1.5" strokeDasharray="6,3" markerEnd="url(#arrow-inh)" />
+
+              {/* User → Product (Patissiere owns products) */}
+              <line x1="500" y1="55" x2="580" y2="55" stroke={C.muted} strokeWidth="1" markerEnd="url(#arrow)" />
+              <text x="520" y="48" fontSize="8" fill={C.muted}>1..*</text>
+
+              {/* Order → OrderItem */}
+              <line x1="735" y1="195" x2="760" y2="195" stroke={C.muted} strokeWidth="1" markerEnd="url(#arrow)" />
+              <text x="740" y="188" fontSize="8" fill={C.muted}>1..*</text>
+
+              {/* Order → User (client) */}
+              <line x1="640" y1="155" x2="475" y2="110" stroke={C.muted} strokeWidth="1" markerEnd="url(#arrow)" />
+
+              {/* Rating → User */}
+              <line x1="760" y1="48" x2="500" y2="48" stroke={C.muted} strokeWidth="1" markerEnd="url(#arrow)" />
+
+              {/* Legend */}
+              <line x1="20" y1="350" x2="60" y2="350" stroke={C.cyan} strokeWidth="1.5" strokeDasharray="6,3" />
+              <text x="65" y="354" fontSize="8" fill={C.muted}>Héritage</text>
+              <line x1="120" y1="350" x2="160" y2="350" stroke={C.muted} strokeWidth="1" markerEnd="url(#arrow)" />
+              <text x="165" y="354" fontSize="8" fill={C.muted}>Association</text>
+            </svg>
+          </motion.div>
+        </div>
+      </div>
+    </SlideWrap>
+  );
+}
+
+// ─────────────────────────────────────────────
+// SLIDE 10 — UML USE CASE
+// ─────────────────────────────────────────────
+function Slide10() {
+  return (
+    <SlideWrap>
+      <div className="flex items-center h-full max-w-7xl mx-auto px-8 md:px-12">
+        <div className="w-full">
+          <Tag>// SLIDE 10 · UML USE CASE</Tag>
+          <H sub="Interactions entre acteurs et fonctionnalités">Diagramme de <span style={{ color: C.cyan }}>Cas d&apos;Utilisation</span></H>
+
+          <motion.div {...a(2)} className="w-full rounded-xl overflow-hidden" style={{ border: `1px solid ${C.border}`, background: C.card }}>
+            <svg viewBox="0 0 900 360" className="w-full" style={{ fontFamily: "var(--font-mono)" }}>
+              {/* System boundary */}
+              <rect x="160" y="20" width="590" height="320" rx="8" fill="none" stroke={C.border} strokeWidth="1.5" strokeDasharray="6,3" />
+              <text x="175" y="38" fontSize="11" fill={C.muted} fontStyle="italic">«système» MaCake</text>
+
+              {/* ── ACTORS ── */}
+              {/* Client */}
+              <circle cx="60" cy="100" r="18" fill="none" stroke={C.blue} strokeWidth="1.5" />
+              <line x1="60" y1="118" x2="60" y2="155" stroke={C.blue} strokeWidth="1.5" />
+              <line x1="35" y1="135" x2="85" y2="135" stroke={C.blue} strokeWidth="1.5" />
+              <line x1="60" y1="155" x2="40" y2="180" stroke={C.blue} strokeWidth="1.5" />
+              <line x1="60" y1="155" x2="80" y2="180" stroke={C.blue} strokeWidth="1.5" />
+              <text x="60" y="195" textAnchor="middle" fontSize="10" fontWeight="bold" fill={C.blue}>Client</text>
+
+              {/* Pâtissier */}
+              <circle cx="60" cy="270" r="18" fill="none" stroke="#E91E63" strokeWidth="1.5" />
+              <line x1="60" y1="288" x2="60" y2="325" stroke="#E91E63" strokeWidth="1.5" />
+              <line x1="35" y1="305" x2="85" y2="305" stroke="#E91E63" strokeWidth="1.5" />
+              <line x1="60" y1="325" x2="40" y2="348" stroke="#E91E63" strokeWidth="1.5" />
+              <line x1="60" y1="325" x2="80" y2="348" stroke="#E91E63" strokeWidth="1.5" />
+              <text x="60" y="360" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#E91E63">Pâtissier</text>
+
+              {/* Admin */}
+              <circle cx="860" cy="180" r="18" fill="none" stroke="#F59E0B" strokeWidth="1.5" />
+              <line x1="860" y1="198" x2="860" y2="235" stroke="#F59E0B" strokeWidth="1.5" />
+              <line x1="835" y1="215" x2="885" y2="215" stroke="#F59E0B" strokeWidth="1.5" />
+              <line x1="860" y1="235" x2="840" y2="258" stroke="#F59E0B" strokeWidth="1.5" />
+              <line x1="860" y1="235" x2="880" y2="258" stroke="#F59E0B" strokeWidth="1.5" />
+              <text x="860" y="272" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#F59E0B">Admin</text>
+
+              {/* ── USE CASES ── */}
+              {[
+                // Client use cases
+                { x: 310, y: 65, label: "S'inscrire / Se connecter", actor: "client" },
+                { x: 310, y: 110, label: "Parcourir le catalogue", actor: "client" },
+                { x: 310, y: 155, label: "Passer une commande", actor: "client" },
+                { x: 310, y: 200, label: "Suivre sa commande", actor: "client" },
+                { x: 310, y: 245, label: "Choisir un livreur", actor: "client" },
+                { x: 310, y: 290, label: "Confirmer livraison", actor: "client" },
+                // Patissier use cases
+                { x: 600, y: 90, label: "Gérer ses produits", actor: "pati" },
+                { x: 600, y: 150, label: "Accepter commande", actor: "pati" },
+                { x: 600, y: 210, label: "Marquer commande prête", actor: "pati" },
+                // Admin use cases
+                { x: 600, y: 270, label: "Gérer utilisateurs", actor: "admin" },
+                { x: 310, y: 335, label: "Résoudre litiges", actor: "admin" },
+              ].map((uc, i) => {
+                const color = uc.actor === "client" ? C.blue : uc.actor === "pati" ? "#E91E63" : "#F59E0B";
+                return (
+                  <g key={i}>
+                    <ellipse cx={uc.x} cy={uc.y} rx="110" ry="16" fill={`${color}10`} stroke={color} strokeWidth="1" />
+                    <text x={uc.x} y={uc.y + 4} textAnchor="middle" fontSize="9" fill={C.text}>{uc.label}</text>
+                  </g>
+                );
+              })}
+
+              {/* ── ASSOCIATION LINES ── */}
+              {/* Client connections */}
+              {[65, 110, 155, 200, 245, 290].map((y, i) => (
+                <line key={i} x1="78" y1={i === 0 ? 100 : 100} x2="200" y2={y} stroke={`${C.blue}50`} strokeWidth="1" />
+              ))}
+              {/* Pâtissier connections */}
+              {[90, 150, 210].map((y, i) => (
+                <line key={i} x1="78" y1={270} x2="490" y2={y} stroke="#E91E6350" strokeWidth="1" />
+              ))}
+              {/* Admin connections */}
+              {[270, 335].map((y, i) => (
+                <line key={i} x1="842" y1={180} x2={y === 335 ? 420 : 710} y2={y} stroke="#F59E0B50" strokeWidth="1" />
+              ))}
+
+              {/* Note: S'inscrire shared */}
+              <text x="450" y="345" textAnchor="middle" fontSize="8" fill={C.muted} fontStyle="italic">
+                «include» Authentification
+              </text>
+            </svg>
+          </motion.div>
+        </div>
+      </div>
+    </SlideWrap>
+  );
+}
+
+// ─────────────────────────────────────────────
+// SLIDE 11 — TECHNOLOGIES
+// ─────────────────────────────────────────────
+function Slide11() {
+  const techs = [
+    {
+      icon: "🏗️", name: "NestJS 11", badge: "Backend", color: "#E0234E",
+      why: "Framework TypeScript modulaire avec support natif microservices TCP et RabbitMQ.",
+    },
+    {
+      icon: "🍃", name: "MongoDB", badge: "Database", color: "#47A248",
+      why: "Schéma flexible par service. Pattern database-per-service pour isolation totale.",
+    },
+    {
+      icon: "⚡", name: "Redis", badge: "Cache & Registry", color: "#DC382D",
+      why: "Service discovery custom (clé/valeur JSON), cache sessions JWT et notations.",
+    },
+    {
+      icon: "🐇", name: "RabbitMQ", badge: "Messaging", color: "#FF6600",
+      why: "Communication asynchrone inter-services via queues durables (orders_queue, auth_queue…).",
+    },
+    {
+      icon: "🐳", name: "Docker Compose", badge: "DevOps", color: "#2496ED",
+      why: "Orchestration de 9 containers sur un réseau bridge macake-network. Reproducible.",
+    },
+    {
+      icon: "📱", name: "Expo / React Native", badge: "Mobile", color: "#7B68EE",
+      why: "Cross-platform iOS & Android. expo-router, Redux Toolkit, nativewind, socket.io-client.",
+    },
+    {
+      icon: "💳", name: "Stripe", badge: "Paiement", color: "#635BFF",
+      why: "PaymentIntents + escrow system. Support MAD (Dirham marocain). Webhooks sécurisés.",
+    },
+    {
+      icon: "📁", name: "MinIO S3", badge: "Stockage", color: "#C72D54",
+      why: "S3-compatible self-hosted. Stockage photos produits et profils utilisateurs.",
+    },
+  ];
+  return (
+    <SlideWrap>
+      <div className="flex items-center h-full max-w-6xl mx-auto px-8 md:px-16">
+        <div className="w-full">
+          <Tag>// SLIDE 11 · TECHNOLOGIES</Tag>
+          <H sub="Stack technique et justification des choix">Technologies <span style={{ color: C.cyan }}>Utilisées</span></H>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {techs.map((t, i) => (
+              <motion.div key={i} {...a(i + 2)}>
+                <Card style={{ borderColor: `${t.color}25`, height: "100%" }}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xl">{t.icon}</span>
+                    <div>
+                      <p className="font-bold text-xs md:text-sm" style={{ color: t.color }}>{t.name}</p>
+                      <Chip label={t.badge} color={t.color} />
+                    </div>
+                  </div>
+                  <p className="text-[10px] md:text-[11px] leading-relaxed" style={{ color: C.muted }}>{t.why}</p>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </SlideWrap>
+  );
+}
+
+// ─────────────────────────────────────────────
+// SLIDE 12 — ARCHITECTURE
+// ─────────────────────────────────────────────
+function Slide12() {
+  return (
+    <SlideWrap>
+      <div className="flex items-center h-full max-w-6xl mx-auto px-8 md:px-12">
+        <div className="w-full">
+          <Tag>// SLIDE 12 · ARCHITECTURE</Tag>
+          <H sub="Vue globale du système et rôle du Gateway + Service Discovery">Architecture <span style={{ color: C.cyan }}>du Système</span></H>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+            {/* Col 1 — Architecture diagram */}
+            <motion.div {...a(2)} className="md:col-span-2">
+              <Card style={{ padding: "16px" }}>
+                <p className="text-[10px] font-mono mb-3" style={{ color: C.muted }}>// Architecture microservices globale</p>
+                <svg viewBox="0 0 560 260" className="w-full" style={{ fontFamily: "var(--font-mono)" }}>
+                  {/* Mobile client */}
+                  <rect x="5" y="100" width="80" height="50" rx="6" fill="#0D1F3C" stroke={C.blue} strokeWidth="1.5" />
+                  <text x="45" y="122" textAnchor="middle" fontSize="9" fill={C.blue}>📱 Mobile</text>
+                  <text x="45" y="136" textAnchor="middle" fontSize="8" fill={C.muted}>Expo App</text>
+
+                  {/* Arrow to Gateway */}
+                  <line x1="85" y1="125" x2="125" y2="125" stroke={C.blue} strokeWidth="1.5" markerEnd="url(#arrow2)" />
+                  <text x="105" y="118" textAnchor="middle" fontSize="7" fill={C.muted}>HTTP</text>
+
+                  {/* API Gateway */}
+                  <rect x="125" y="80" width="100" height="90" rx="8" fill="#0D1F3C" stroke={C.cyan} strokeWidth="2" />
+                  <text x="175" y="102" textAnchor="middle" fontSize="9" fontWeight="bold" fill={C.cyan}>🌐 Gateway</text>
+                  <text x="175" y="116" textAnchor="middle" fontSize="7" fill={C.muted}>Port 3000</text>
+                  <text x="175" y="128" textAnchor="middle" fontSize="7" fill={C.muted}>JWT Auth</text>
+                  <text x="175" y="140" textAnchor="middle" fontSize="7" fill={C.muted}>Rate Limit</text>
+                  <text x="175" y="152" textAnchor="middle" fontSize="7" fill={C.muted}>TCP Forward</text>
+
+                  {/* Redis */}
+                  <rect x="125" y="195" width="100" height="40" rx="6" fill="#0D1F3C" stroke="#DC382D" strokeWidth="1.5" />
+                  <text x="175" y="210" textAnchor="middle" fontSize="9" fill="#DC382D">⚡ Redis</text>
+                  <text x="175" y="225" textAnchor="middle" fontSize="7" fill={C.muted}>Service Registry</text>
+                  {/* Gateway → Redis */}
+                  <line x1="175" y1="170" x2="175" y2="195" stroke="#DC382D" strokeWidth="1" strokeDasharray="4,2" />
+
+                  {/* TCP arrow */}
+                  <line x1="225" y1="125" x2="265" y2="125" stroke={C.muted} strokeWidth="1.5" markerEnd="url(#arrow2)" />
+                  <text x="245" y="118" textAnchor="middle" fontSize="7" fill={C.muted}>TCP</text>
+
+                  {/* Services block */}
+                  {[
+                    { name: "auth-service", port: ":3001", color: C.blue, y: 45 },
+                    { name: "catalog-service", port: ":3002", color: "#47A248", y: 95 },
+                    { name: "order-service", port: ":3003", color: "#FF6600", y: 145 },
+                    { name: "payment-service", port: ":3005", color: "#635BFF", y: 195 },
+                    { name: "notation-service", port: ":3006", color: "#FFD700", y: 245 },
+                  ].map((svc) => (
+                    <g key={svc.name}>
+                      <rect x="265" y={svc.y - 18} width="130" height="32" rx="5" fill="#0D1F3C" stroke={svc.color} strokeWidth="1" />
+                      <text x="330" y={svc.y - 4} textAnchor="middle" fontSize="8" fontWeight="bold" fill={svc.color}>{svc.name}</text>
+                      <text x="330" y={svc.y + 8} textAnchor="middle" fontSize="7" fill={C.muted}>{svc.port} · MongoDB</text>
+                      {/* Line from gateway to service */}
+                      <line x1="265" y1="125" x2="265" y2={svc.y} stroke={`${svc.color}40`} strokeWidth="1" />
+                    </g>
+                  ))}
+
+                  {/* RabbitMQ */}
+                  <rect x="415" y="160" width="100" height="40" rx="6" fill="#0D1F3C" stroke="#FF6600" strokeWidth="1.5" />
+                  <text x="465" y="175" textAnchor="middle" fontSize="9" fill="#FF6600">🐇 RabbitMQ</text>
+                  <text x="465" y="189" textAnchor="middle" fontSize="7" fill={C.muted}>Async Queues</text>
+                  <line x1="395" y1="180" x2="415" y2="180" stroke="#FF660060" strokeWidth="1" strokeDasharray="3,2" />
+
+                  {/* Arrow defs */}
+                  <defs>
+                    <marker id="arrow2" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto">
+                      <path d="M0,0 L0,6 L7,3 z" fill={C.muted} />
+                    </marker>
+                  </defs>
+
+                  {/* Labels */}
+                  <text x="5" y="260" fontSize="7" fill={C.muted}>① Client fait une requête HTTP</text>
+                  <text x="5" y="270" fontSize="7" fill={C.muted}>② Gateway vérifie JWT, lit Redis, forward en TCP</text>
+                  <text x="5" y="280" fontSize="7" fill={C.muted}>③ Service répond → Gateway retransmet en HTTP</text>
+                </svg>
+              </Card>
+            </motion.div>
+
+            {/* Col 2 — Service Discovery explanation */}
+            <div className="space-y-3">
+              <motion.div {...a(3)}>
+                <Card style={{ borderColor: `${C.cyan}30` }}>
+                  <p className="text-[10px] font-mono font-bold mb-2" style={{ color: C.cyan }}>
+                    🔍 Service Discovery Custom
+                  </p>
+                  <div className="space-y-2 text-[10px]" style={{ color: C.muted }}>
+                    <p>① Chaque service <span style={{ color: C.text }}>s&apos;enregistre dans Redis</span> au démarrage :</p>
+                    <div className="rounded p-2" style={{ background: "#020810", fontFamily: "var(--font-mono)", fontSize: "9px", color: "#7FDBFF" }}>
+                      <div><span style={{ color: "#FF79C6" }}>KEY</span>: serviceKey:s1</div>
+                      <div>{"{ host, port, endpoints }"}</div>
+                    </div>
+                    <p>② Gateway <span style={{ color: C.text }}>lit Redis</span> pour localiser le service.</p>
+                    <p>③ Sélection <span style={{ color: C.text }}>aléatoire</span> si plusieurs instances.</p>
+                    <p>④ <span style={{ color: "#47A248" }}>✓ Pas de Consul/Eureka</span> — 100% custom NestJS + Redis.</p>
+                  </div>
+                </Card>
+              </motion.div>
+
+              <motion.div {...a(4)}>
+                <Card>
+                  <p className="text-[10px] font-mono font-bold mb-2" style={{ color: "#FF6600" }}>
+                    🐇 Communication Services
+                  </p>
+                  <div className="space-y-1.5 text-[10px]" style={{ color: C.muted }}>
+                    <div className="flex items-center gap-2">
+                      <Chip label="TCP" color={C.blue} />
+                      <span>Gateway ↔ Services (sync)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Chip label="RabbitMQ" color="#FF6600" />
+                      <span>Services ↔ Services (async)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Chip label="WebSocket" color="#47A248" />
+                      <span>Temps réel → Client</span>
+                    </div>
+                  </div>
+                </Card>
+              </motion.div>
+
+              <motion.div {...a(5)}>
+                <Card>
+                  <p className="text-[10px] font-mono font-bold mb-2" style={{ color: "#F59E0B" }}>
+                    🐳 Docker — 9 containers
+                  </p>
+                  <div className="grid grid-cols-2 gap-1">
+                    {["Gateway", "Auth", "Catalog", "Order", "Payment", "Notation", "MongoDB", "Redis", "RabbitMQ"].map((s, i) => (
+                      <span key={i} className="text-[9px] px-1.5 py-0.5 rounded" style={{ background: "rgba(30,144,255,0.08)", color: C.muted }}>
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                </Card>
+              </motion.div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </SlideWrap>
+  );
+}
+
+// ─────────────────────────────────────────────
+// SLIDE REGISTRY — exactly 12 slides
 // ─────────────────────────────────────────────
 const SLIDES = [
-  { id: 1, label: "Vue d'ensemble", component: Slide01Overview },
-  { id: 2, label: "Problèmes techniques", component: Slide02Problem },
-  { id: 3, label: "Technologies", component: Slide03Technologies },
-  { id: 4, label: "Architecture", component: Slide04Architecture },
-  { id: 5, label: "API Gateway", component: Slide05Gateway },
-  { id: 6, label: "Service Discovery", component: Slide06ServiceDiscovery },
-  { id: 7, label: "Flux de données", component: Slide07DataFlow },
-  { id: 8, label: "Optimisation", component: Slide08Optimization },
-  { id: 9, label: "Défis & Solutions", component: Slide09Challenges },
-  { id: 10, label: "Conclusion", component: Slide10Conclusion },
+  { id: 1, label: "Titre", component: Slide01 },
+  { id: 2, label: "Introduction", component: Slide02 },
+  { id: 3, label: "Problématique", component: Slide03 },
+  { id: 4, label: "Objectifs", component: Slide04 },
+  { id: 5, label: "Solution", component: Slide05 },
+  { id: 6, label: "Acteurs & Rôles", component: Slide06 },
+  { id: 7, label: "Fonctionnalités", component: Slide07 },
+  { id: 8, label: "User Flow", component: Slide08 },
+  { id: 9, label: "UML — Classes", component: Slide09 },
+  { id: 10, label: "UML — Use Case", component: Slide10 },
+  { id: 11, label: "Technologies", component: Slide11 },
+  { id: 12, label: "Architecture", component: Slide12 },
 ];
 
 // ─────────────────────────────────────────────
@@ -748,8 +1012,8 @@ export default function TechPresentation() {
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
-      if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === " ") { e.preventDefault(); next(); }
-      else if (e.key === "ArrowLeft" || e.key === "ArrowUp") { e.preventDefault(); prev(); }
+      if (["ArrowRight", "ArrowDown", " "].includes(e.key)) { e.preventDefault(); next(); }
+      else if (["ArrowLeft", "ArrowUp"].includes(e.key)) { e.preventDefault(); prev(); }
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
@@ -758,62 +1022,61 @@ export default function TechPresentation() {
   const Active = SLIDES[cur].component;
 
   return (
-    <div className="relative w-full h-full overflow-hidden bg-[#050D1A] select-none">
+    <div className="relative w-full h-full overflow-hidden select-none" style={{ background: C.bg }}>
       {/* Slide */}
       <AnimatePresence initial={false} custom={dir} mode="wait">
-        <motion.div key={cur} custom={dir} variants={variants}
+        <motion.div key={cur} custom={dir} variants={slideVariants}
           initial="enter" animate="center" exit="exit" transition={tx}
           className="absolute inset-0">
           <Active />
         </motion.div>
       </AnimatePresence>
 
-      {/* Top progress bar */}
-      <div className="absolute top-0 left-0 right-0 h-0.5 z-50" style={{ background: "rgba(30,144,255,0.1)" }}>
-        <motion.div className="h-full"
-          style={{ background: "linear-gradient(90deg, #1E90FF, #00D4FF)" }}
+      {/* Progress bar */}
+      <div className="absolute top-0 left-0 right-0 h-0.5 z-50" style={{ background: "rgba(30,144,255,0.08)" }}>
+        <motion.div className="h-full" style={{ background: `linear-gradient(90deg, ${C.blue}, ${C.cyan})` }}
           animate={{ width: `${((cur + 1) / SLIDES.length) * 100}%` }}
           transition={{ duration: 0.4, ease: "easeOut" }} />
       </div>
 
-      {/* Slide label (top left) */}
-      <div className="absolute top-4 left-5 z-50">
-        <div className="glass rounded-md px-3 py-1 text-[11px] font-mono" style={{ color: "#7B9EC9" }}>
+      {/* Slide label */}
+      <div className="absolute top-3 left-5 z-50">
+        <div className="px-3 py-1 rounded-md text-[10px] font-mono" style={{ background: "rgba(10,22,40,0.8)", color: C.muted, border: `1px solid ${C.border}` }}>
           {SLIDES[cur].label}
         </div>
       </div>
 
-      {/* Counter (top right) */}
-      <div className="absolute top-4 right-5 z-50">
-        <div className="glass rounded-md px-3 py-1 text-[11px] font-mono font-bold" style={{ color: "#1E90FF" }}>
+      {/* Counter */}
+      <div className="absolute top-3 right-5 z-50">
+        <div className="px-3 py-1 rounded-md text-[10px] font-mono font-bold" style={{ background: "rgba(10,22,40,0.8)", color: C.blue, border: `1px solid ${C.border}` }}>
           {cur + 1} / {SLIDES.length}
         </div>
       </div>
 
-      {/* Left arrow */}
+      {/* Prev */}
       {cur > 0 && (
         <button onClick={prev}
-          className="absolute left-4 top-1/2 -translate-y-1/2 z-50 w-10 h-10 rounded-full glass flex items-center justify-center transition-all duration-200 hover:scale-110"
-          style={{ color: "#7B9EC9" }} aria-label="Précédent">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          className="absolute left-3 top-1/2 -translate-y-1/2 z-50 w-9 h-9 rounded-full flex items-center justify-center transition-all hover:scale-110"
+          style={{ background: "rgba(10,22,40,0.8)", border: `1px solid ${C.border}`, color: C.muted }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M15 18l-6-6 6-6" />
           </svg>
         </button>
       )}
 
-      {/* Right arrow */}
+      {/* Next */}
       {cur < SLIDES.length - 1 && (
         <button onClick={next}
-          className="absolute right-4 top-1/2 -translate-y-1/2 z-50 w-10 h-10 rounded-full glass flex items-center justify-center transition-all duration-200 hover:scale-110"
-          style={{ color: "#1E90FF" }} aria-label="Suivant">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          className="absolute right-3 top-1/2 -translate-y-1/2 z-50 w-9 h-9 rounded-full flex items-center justify-center transition-all hover:scale-110"
+          style={{ background: "rgba(10,22,40,0.8)", border: `1px solid ${C.blue}40`, color: C.blue }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M9 18l6-6-6-6" />
           </svg>
         </button>
       )}
 
-      {/* Bottom dots */}
-      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2">
+      {/* Dots */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1.5">
         {SLIDES.map((_, i) => (
           <button key={i} onClick={() => goTo(i)}
             className={`dot ${i === cur ? "active" : ""}`}
@@ -821,12 +1084,12 @@ export default function TechPresentation() {
         ))}
       </div>
 
-      {/* Keyboard hint — slide 1 */}
+      {/* Hint */}
       {cur === 0 && (
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2.5 }}
-          className="absolute bottom-14 left-1/2 -translate-x-1/2 z-50 text-[11px] font-mono"
-          style={{ color: "rgba(123,158,201,0.4)" }}>
-          ← → pour naviguer · Espace pour avancer
+          className="absolute bottom-12 left-1/2 -translate-x-1/2 z-50 text-[10px] font-mono whitespace-nowrap"
+          style={{ color: "rgba(123,158,201,0.35)" }}>
+          ← → naviguer · Espace avancer
         </motion.p>
       )}
     </div>
